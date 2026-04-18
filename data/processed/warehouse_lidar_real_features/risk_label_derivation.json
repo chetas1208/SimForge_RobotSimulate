@@ -1,0 +1,24 @@
+{
+  "binary_definition": "1 when a scan is at least caution-risk based on clearance, blockage, congestion, or proximity thresholds derived from real LiDAR geometry and 3D boxes.",
+  "binary_target": "risk_label",
+  "limitations": [
+    "The public dataset does not include human annotations in its current release, so human-specific training features are zero-filled.",
+    "Risk targets are derived heuristically from real geometry and annotations, not from manual safety incident labels."
+  ],
+  "multiclass_levels": {
+    "0": "safe",
+    "1": "caution",
+    "2": "high"
+  },
+  "multiclass_target": "risk_level",
+  "thresholds": {
+    "high_risk_congestion_score": 0.68,
+    "high_risk_front_clearance_m": 1.2,
+    "high_risk_nearest_object_m": 0.9,
+    "high_risk_path_blockage_score": 0.72,
+    "safe_congestion_score": 0.45,
+    "safe_front_clearance_m": 2.5,
+    "safe_nearest_object_m": 1.8,
+    "safe_path_blockage_score": 0.45
+  }
+}

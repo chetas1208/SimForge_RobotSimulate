@@ -1,0 +1,24 @@
+{
+  "binary_label_counts": {
+    "0": 2006,
+    "1": 1281
+  },
+  "chunk_size": 50,
+  "dataset_name": "warehouse_lidar_real_features",
+  "dataset_root": "/home/923873155/Hackathon_18Apr/data/raw_real/Dataset",
+  "multiclass_label_counts": {
+    "0": 2006,
+    "1": 1281
+  },
+  "row_count": 3287,
+  "split_counts": {
+    "test": 500,
+    "train": 2300,
+    "val": 487
+  },
+  "target_columns": [
+    "risk_label",
+    "risk_level",
+    "unsafe_clearance_label"
+  ]
+}
