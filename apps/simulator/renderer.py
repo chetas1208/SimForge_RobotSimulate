@@ -101,6 +101,7 @@ def _background_color(variant: ScenarioVariantConfig) -> tuple[int, int, int]:
         "bright": (36, 40, 50),
         "normal": (24, 28, 36),
         "low": (18, 22, 30),
+        "poor": (14, 16, 22),
         "emergency": (56, 26, 26),
     }
     return mapping[variant.lighting_level.value]

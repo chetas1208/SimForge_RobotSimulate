@@ -1,0 +1,36 @@
+{
+  "device": "cpu",
+  "model_version": "warehouse-risk-binary-20260418182317",
+  "target_column": "risk_label",
+  "task": "binary",
+  "test": {
+    "average_precision": 0.9839575258363927,
+    "confusion_matrix": [
+      [
+        213,
+        7
+      ],
+      [
+        13,
+        164
+      ]
+    ],
+    "f1": 0.9425287356321839,
+    "roc_auc": 0.9826142783769902
+  },
+  "validation": {
+    "average_precision": 0.9536954934738848,
+    "confusion_matrix": [
+      [
+        159,
+        7
+      ],
+      [
+        44,
+        200
+      ]
+    ],
+    "f1": 0.8869179600886918,
+    "roc_auc": 0.9090460201461583
+  }
+}

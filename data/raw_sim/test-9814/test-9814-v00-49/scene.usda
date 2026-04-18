@@ -1,0 +1,27 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+)
+
+def Xform "World"
+{
+    customData = {
+        string simforge:job_id = "test-9814"
+        string simforge:scenario_id = "test-9814-v00-49"
+    }
+    def Xform "WarehouseEnvironment" {
+        custom string preset = "narrow_corridor"
+        custom string lighting = "normal"
+    }
+    def Xform "Robot" { custom string kind = "mobile_robot" }
+    def Xform "Pedestrians" {
+        custom int count = 0
+    }
+    def Xform "Forklifts" {
+        custom int count = 1
+    }
+    def Xform "Sensors" {
+        def Xform "PreviewCamera" { custom string purpose = "preview" }
+        def Xform "LidarMount" { custom string purpose = "future_sensor" }
+    }
+}

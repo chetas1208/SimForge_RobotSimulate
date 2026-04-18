@@ -1,0 +1,23 @@
+{
+  "created_at": "2026-04-18T18:24:53.688585",
+  "generator": "headless_preview_renderer",
+  "job_id": "test-inference-001",
+  "notes": [
+    "human_count=2",
+    "forklift_count=0",
+    "obstacle_count=2"
+  ],
+  "output_dir": "/Users/omkarthakur/Hacathon/Multimodal_Hack_18Apr/data/raw_sim/test-inference-001/test-inference-001-v00-49",
+  "preview_asset_type": "preview_asset",
+  "retries": 0,
+  "runtime": {
+    "headless": true,
+    "use_isaac": false
+  },
+  "scenario_id": "test-inference-001-v00-49",
+  "scenario_seed": 49,
+  "scene_family": "blind_corner_aisle:hard",
+  "schema_version": "2026-04-18-sim-service-v2",
+  "status": "completed",
+  "variant_index": 0
+}

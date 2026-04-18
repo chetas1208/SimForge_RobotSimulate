@@ -1,0 +1,23 @@
+{
+  "created_at": "2026-04-18T18:26:33.313376",
+  "generator": "headless_preview_renderer",
+  "job_id": "test-3231",
+  "notes": [
+    "human_count=3",
+    "forklift_count=0",
+    "obstacle_count=4"
+  ],
+  "output_dir": "/Users/omkarthakur/Hacathon/Multimodal_Hack_18Apr/data/raw_sim/test-3231/test-3231-v00-49",
+  "preview_asset_type": "preview_asset",
+  "retries": 0,
+  "runtime": {
+    "headless": true,
+    "use_isaac": false
+  },
+  "scenario_id": "test-3231-v00-49",
+  "scenario_seed": 49,
+  "scene_family": "loading_zone:hard",
+  "schema_version": "2026-04-18-sim-service-v2",
+  "status": "completed",
+  "variant_index": 0
+}

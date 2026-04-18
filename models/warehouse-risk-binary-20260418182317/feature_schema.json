@@ -1,0 +1,193 @@
+{
+  "categorical_features": [
+    "environment_type"
+  ],
+  "categorical_levels": {
+    "environment_type": [
+      "warehouse_aisle"
+    ]
+  },
+  "created_at": "2026-04-18T04:11:35.101491",
+  "defaults": {
+    "average_obstacle_distance_m": 25.0,
+    "bbox_volume_max": 0.0,
+    "bbox_volume_mean": 0.0,
+    "clutter_score": 0.0,
+    "congestion_score": 0.0,
+    "environment_type": "warehouse_aisle",
+    "free_space_ratio": 1.0,
+    "front_clearance_m": 6.0,
+    "left_clearance_m": 4.0,
+    "nearest_human_distance_m": 25.0,
+    "nearest_object_distance_m": 25.0,
+    "object_count_forklift": 0,
+    "object_count_human": 0,
+    "object_count_pallet": 0,
+    "object_count_total": 0,
+    "object_count_vehicle_platform": 0,
+    "object_speed_proxy": 0.0,
+    "obstacle_density": 0.0,
+    "occlusion_proxy": 0.0,
+    "path_blockage_score": 0.0,
+    "right_clearance_m": 4.0
+  },
+  "dropped_columns": [
+    "scan_id",
+    "frame_index",
+    "sequence_id",
+    "scan_chunk"
+  ],
+  "encoded_columns": [
+    "object_count_total",
+    "object_count_human",
+    "object_count_forklift",
+    "object_count_pallet",
+    "object_count_vehicle_platform",
+    "nearest_object_distance_m",
+    "nearest_human_distance_m",
+    "average_obstacle_distance_m",
+    "obstacle_density",
+    "left_clearance_m",
+    "right_clearance_m",
+    "front_clearance_m",
+    "free_space_ratio",
+    "clutter_score",
+    "occlusion_proxy",
+    "bbox_volume_mean",
+    "bbox_volume_max",
+    "object_speed_proxy",
+    "environment_type__warehouse_aisle"
+  ],
+  "group_columns": [
+    "scan_chunk",
+    "sequence_id"
+  ],
+  "numeric_features": [
+    "object_count_total",
+    "object_count_human",
+    "object_count_forklift",
+    "object_count_pallet",
+    "object_count_vehicle_platform",
+    "nearest_object_distance_m",
+    "nearest_human_distance_m",
+    "average_obstacle_distance_m",
+    "obstacle_density",
+    "left_clearance_m",
+    "right_clearance_m",
+    "front_clearance_m",
+    "free_space_ratio",
+    "clutter_score",
+    "occlusion_proxy",
+    "bbox_volume_mean",
+    "bbox_volume_max",
+    "object_speed_proxy"
+  ],
+  "ranges": {
+    "average_obstacle_distance_m": [
+      0.0,
+      50.0
+    ],
+    "bbox_volume_max": [
+      0.0,
+      500.0
+    ],
+    "bbox_volume_mean": [
+      0.0,
+      200.0
+    ],
+    "clutter_score": [
+      0.0,
+      1.0
+    ],
+    "congestion_risk_label": [
+      0,
+      1
+    ],
+    "congestion_score": [
+      0.0,
+      1.0
+    ],
+    "free_space_ratio": [
+      0.0,
+      1.0
+    ],
+    "front_clearance_m": [
+      0.0,
+      50.0
+    ],
+    "left_clearance_m": [
+      0.0,
+      20.0
+    ],
+    "nearest_human_distance_m": [
+      0.0,
+      50.0
+    ],
+    "nearest_object_distance_m": [
+      0.0,
+      50.0
+    ],
+    "object_count_forklift": [
+      0,
+      20
+    ],
+    "object_count_human": [
+      0,
+      20
+    ],
+    "object_count_pallet": [
+      0,
+      100
+    ],
+    "object_count_total": [
+      0,
+      100
+    ],
+    "object_count_vehicle_platform": [
+      0,
+      50
+    ],
+    "object_speed_proxy": [
+      0.0,
+      20.0
+    ],
+    "obstacle_density": [
+      0.0,
+      10.0
+    ],
+    "obstacle_proximity_risk": [
+      0.0,
+      1.0
+    ],
+    "occlusion_proxy": [
+      0.0,
+      1.0
+    ],
+    "path_blockage_score": [
+      0.0,
+      1.0
+    ],
+    "right_clearance_m": [
+      0.0,
+      20.0
+    ],
+    "risk_label": [
+      0,
+      1
+    ],
+    "risk_level": [
+      0,
+      2
+    ],
+    "unsafe_clearance_label": [
+      0,
+      1
+    ]
+  },
+  "target_columns": [
+    "risk_label",
+    "risk_level",
+    "unsafe_clearance_label"
+  ],
+  "version": "2026-04-18-real-risk-v2"
+}

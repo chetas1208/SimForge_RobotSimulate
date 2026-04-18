@@ -1,0 +1,43 @@
+{
+  "device": "cpu",
+  "model_version": "warehouse-risk-multiclass-20260418182328",
+  "target_column": "risk_level",
+  "task": "multiclass",
+  "test": {
+    "average_precision": 0.6527656535049583,
+    "confusion_matrix": [
+      [
+        212,
+        8
+      ],
+      [
+        12,
+        165
+      ]
+    ],
+    "f1": 0.9489060489060489,
+    "roc_auc": NaN
+  },
+  "validation": {
+    "average_precision": 0.5939602244431373,
+    "confusion_matrix": [
+      [
+        153,
+        13,
+        0
+      ],
+      [
+        41,
+        193,
+        0
+      ],
+      [
+        6,
+        4,
+        0
+      ]
+    ],
+    "f1": 0.5684783143799538,
+    "roc_auc": 0.7922764267740073
+  }
+}
