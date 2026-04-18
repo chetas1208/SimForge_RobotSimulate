@@ -7,7 +7,7 @@
       "warehouse_aisle"
     ]
   },
-  "created_at": "2026-04-18T04:11:35.101491",
+  "created_at": "2026-04-18T04:05:06.921430",
   "defaults": {
     "average_obstacle_distance_m": 25.0,
     "bbox_volume_max": 0.0,
@@ -56,6 +56,8 @@
     "bbox_volume_mean",
     "bbox_volume_max",
     "object_speed_proxy",
+    "path_blockage_score",
+    "congestion_score",
     "environment_type__warehouse_aisle"
   ],
   "group_columns": [
@@ -80,7 +82,9 @@
     "occlusion_proxy",
     "bbox_volume_mean",
     "bbox_volume_max",
-    "object_speed_proxy"
+    "object_speed_proxy",
+    "path_blockage_score",
+    "congestion_score"
   ],
   "ranges": {
     "average_obstacle_distance_m": [

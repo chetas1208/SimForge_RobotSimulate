@@ -91,17 +91,25 @@ def train(args: argparse.Namespace) -> dict[str, str]:
         model = xgb.XGBClassifier(
             objective="binary:logistic",
             eval_metric="logloss",
-            n_estimators=350,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            reg_lambda=1.0,
+            n_estimators=500,
+            max_depth=3,
+            learning_rate=0.04,
+            min_child_weight=10,
+            gamma=0.10,
+            subsample=0.75,
+            colsample_bytree=0.75,
+            reg_alpha=0.5,
+            reg_lambda=4.0,
             random_state=args.seed,
             tree_method="hist",
             device=args.device,
         )
-        model.fit(x_train, train_df[target_column], eval_set=[(x_val, val_df[target_column])], verbose=False)
+        model.fit(
+            x_train,
+            train_df[target_column],
+            eval_set=[(x_val, val_df[target_column])],
+            verbose=False,
+        )
         val_probabilities = model.predict_proba(x_val)[:, 1]
         test_probabilities = model.predict_proba(x_test)[:, 1]
         metrics_payload = {
@@ -115,17 +123,25 @@ def train(args: argparse.Namespace) -> dict[str, str]:
             objective="multi:softprob",
             num_class=class_count,
             eval_metric="mlogloss",
-            n_estimators=350,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            reg_lambda=1.0,
+            n_estimators=500,
+            max_depth=3,
+            learning_rate=0.04,
+            min_child_weight=10,
+            gamma=0.10,
+            subsample=0.75,
+            colsample_bytree=0.75,
+            reg_alpha=0.5,
+            reg_lambda=4.0,
             random_state=args.seed,
             tree_method="hist",
             device=args.device,
         )
-        model.fit(x_train, train_df[target_column], eval_set=[(x_val, val_df[target_column])], verbose=False)
+        model.fit(
+            x_train,
+            train_df[target_column],
+            eval_set=[(x_val, val_df[target_column])],
+            verbose=False,
+        )
         val_probabilities = model.predict_proba(x_val)
         test_probabilities = model.predict_proba(x_test)
         metrics_payload = {

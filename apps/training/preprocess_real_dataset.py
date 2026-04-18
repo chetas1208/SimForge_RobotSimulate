@@ -16,7 +16,11 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from apps.training.feature_extraction import FeatureExtractionConfig, extract_feature_row
-from apps.training.risk_labeling import derive_risk_targets, label_derivation_explanation
+from apps.training.risk_labeling import (
+    FutureRiskLabelingConfig,
+    derive_future_window_targets,
+    label_derivation_explanation,
+)
 from apps.training.warehouse_dataset import iter_dataset_records
 from packages.shared_schema import (
     DEFAULTS,
@@ -67,6 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-root", default=str(DATA_RAW_REAL / "lidar-warehouse-dataset"))
     parser.add_argument("--dataset-name", default="warehouse_lidar_real_features")
     parser.add_argument("--chunk-size", type=int, default=50)
+    parser.add_argument("--future-horizon-frames", type=int, default=10)
     parser.add_argument("--max-scans", type=int, default=None)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--train-size", type=float, default=0.7)
@@ -142,6 +147,7 @@ def build_real_dataset(
     dataset_root: str | Path,
     dataset_name: str,
     chunk_size: int,
+    future_horizon_frames: int,
     max_scans: int | None,
     seed: int,
     train_size: float,
@@ -149,18 +155,20 @@ def build_real_dataset(
     test_size: float,
 ) -> dict[str, str]:
     runtime = FeatureExtractionConfig()
+    labeling_runtime = FutureRiskLabelingConfig(horizon_frames=future_horizon_frames)
     rows: list[dict[str, Any]] = []
     previous_record = None
     for record in iter_dataset_records(dataset_root=dataset_root, chunk_size=chunk_size, limit=max_scans):
-        features = extract_feature_row(record, previous_record=previous_record, config=runtime)
-        labels = derive_risk_targets(features)
-        rows.append({**features, **labels})
+        previous_for_record = previous_record if previous_record and previous_record.scan_chunk == record.scan_chunk else None
+        features = extract_feature_row(record, previous_record=previous_for_record, config=runtime)
+        rows.append(features)
         previous_record = record
 
     if not rows:
         raise RuntimeError(f"No scans found under {dataset_root}")
 
-    df = pd.DataFrame(rows)
+    feature_df = pd.DataFrame(rows)
+    df = derive_future_window_targets(feature_df, config=labeling_runtime)
     if not REQUIRED_COLUMNS.issubset(df.columns):
         missing = sorted(REQUIRED_COLUMNS.difference(df.columns))
         raise RuntimeError(f"Feature dataset is missing required columns: {missing}")
@@ -170,7 +178,7 @@ def build_real_dataset(
     df = _filter_out_of_range_rows(df)
     df = _assign_splits(df, train_size=train_size, val_size=val_size, test_size=test_size, seed=seed)
 
-    categorical_levels = infer_categorical_levels(rows)
+    categorical_levels = infer_categorical_levels(df.to_dict(orient="records"))
     feature_schema = build_feature_schema(categorical_levels=categorical_levels)
 
     processed_dir = DATA_PROCESSED / dataset_name
@@ -186,18 +194,21 @@ def build_real_dataset(
 
     write_dataframe(df, parquet_path=parquet_path, csv_path=csv_path)
     write_json(feature_schema_path, feature_schema)
-    write_json(label_derivation_path, label_derivation_explanation())
+    write_json(label_derivation_path, label_derivation_explanation(labeling_runtime))
     write_json(
         summary_path,
         {
             "dataset_name": dataset_name,
             "dataset_root": str(Path(dataset_root).resolve()),
             "row_count": int(len(df)),
+            "source_row_count": int(len(feature_df)),
+            "dropped_no_future_rows": int(len(feature_df) - len(df)),
             "split_counts": Counter(df["split"]),
             "binary_label_counts": Counter(df["risk_label"]),
             "multiclass_label_counts": Counter(df["risk_level"]),
             "target_columns": list(TARGET_COLUMNS),
             "chunk_size": chunk_size,
+            "future_horizon_frames": future_horizon_frames,
         },
     )
 
@@ -221,6 +232,7 @@ def main() -> None:
         dataset_root=args.dataset_root,
         dataset_name=args.dataset_name,
         chunk_size=args.chunk_size,
+        future_horizon_frames=args.future_horizon_frames,
         max_scans=args.max_scans,
         seed=args.seed,
         train_size=args.train_size,
@@ -233,4 +245,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

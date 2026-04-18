@@ -1,0 +1,23 @@
+{
+  "average_obstacle_distance_m": 0.08448832482099533,
+  "bbox_volume_max": 0.06367079168558121,
+  "bbox_volume_mean": 0.06431466341018677,
+  "clutter_score": 0.050450731068849564,
+  "congestion_score": 0.03572618216276169,
+  "environment_type__warehouse_aisle": 0.0,
+  "free_space_ratio": 0.03522877022624016,
+  "front_clearance_m": 0.06724244356155396,
+  "left_clearance_m": 0.036169569939374924,
+  "nearest_human_distance_m": 0.0,
+  "nearest_object_distance_m": 0.22046631574630737,
+  "object_count_forklift": 0.03304978087544441,
+  "object_count_human": 0.0,
+  "object_count_pallet": 0.02986503206193447,
+  "object_count_total": 0.017353711649775505,
+  "object_count_vehicle_platform": 0.05497664585709572,
+  "object_speed_proxy": 0.0254849661141634,
+  "obstacle_density": 0.013095950707793236,
+  "occlusion_proxy": 0.0,
+  "path_blockage_score": 0.12993106245994568,
+  "right_clearance_m": 0.03848498314619064
+}

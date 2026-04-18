@@ -1,9 +1,33 @@
 {
-  "binary_definition": "1 when a scan is at least caution-risk based on clearance, blockage, congestion, or proximity thresholds derived from real LiDAR geometry and 3D boxes.",
+  "binary_definition": "1 when the next horizon window inside the same scan chunk reaches at least caution-risk based on future clearance, blockage, and congestion outcomes.",
   "binary_target": "risk_label",
+  "config": {
+    "caution_threshold": 0.4,
+    "congestion_alert_score": 0.38,
+    "congestion_high_risk": 0.46,
+    "congestion_low_risk": 0.31,
+    "front_clearance_high_risk_m": 2.45,
+    "front_clearance_low_risk_m": 3.05,
+    "high_threshold": 0.68,
+    "horizon_frames": 10,
+    "min_future_frames": 1,
+    "path_blockage_high_risk": 0.46,
+    "path_blockage_low_risk": 0.22,
+    "proximity_high_risk_m": 2.9,
+    "proximity_low_risk_m": 5.5,
+    "unsafe_clearance_front_m": 2.7,
+    "unsafe_clearance_nearest_m": 4.0,
+    "unsafe_clearance_path_blockage": 0.35
+  },
+  "future_window_strategy": {
+    "horizon_frames": 10,
+    "min_future_frames": 1,
+    "note": "Targets are derived from future outcomes only. Current-frame feature columns remain inputs, but labels are defined using subsequent frames to reduce same-frame leakage."
+  },
   "limitations": [
     "The public dataset does not include human annotations in its current release, so human-specific training features are zero-filled.",
-    "Risk targets are derived heuristically from real geometry and annotations, not from manual safety incident labels."
+    "Targets are now future-window outcomes, but they are still proxy safety labels derived from geometry and annotations rather than manually curated incident labels.",
+    "Rows without any future context inside a scan chunk are dropped from training to keep the target predictive."
   ],
   "multiclass_levels": {
     "0": "safe",
@@ -11,14 +35,21 @@
     "2": "high"
   },
   "multiclass_target": "risk_level",
-  "thresholds": {
-    "high_risk_congestion_score": 0.68,
-    "high_risk_front_clearance_m": 1.2,
-    "high_risk_nearest_object_m": 0.9,
-    "high_risk_path_blockage_score": 0.72,
-    "safe_congestion_score": 0.45,
-    "safe_front_clearance_m": 2.5,
-    "safe_nearest_object_m": 1.8,
-    "safe_path_blockage_score": 0.45
+  "severity_formula": {
+    "components": {
+      "future_max_congestion_score": 0.15,
+      "future_max_object_count_forklift": 0.05,
+      "future_max_path_blockage_score": 0.2,
+      "future_min_front_clearance_m": 0.3,
+      "future_min_nearest_object_distance_m": 0.3
+    },
+    "thresholds": {
+      "caution_threshold": 0.4,
+      "congestion_alert_score": 0.38,
+      "high_threshold": 0.68,
+      "unsafe_clearance_front_m": 2.7,
+      "unsafe_clearance_nearest_m": 4.0,
+      "unsafe_clearance_path_blockage": 0.35
+    }
   }
 }

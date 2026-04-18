@@ -42,8 +42,6 @@ NUMERIC_FEATURES = [
     "bbox_volume_mean",
     "bbox_volume_max",
     "object_speed_proxy",
-    "path_blockage_score",
-    "congestion_score",
 ]
 
 CATEGORICAL_FEATURES = [
@@ -207,4 +205,3 @@ def probability_to_risk_label(probability: float) -> RiskLabel:
     if probability >= SAFE_PROBABILITY_THRESHOLD:
         return RiskLabel.CAUTION
     return RiskLabel.SAFE
-

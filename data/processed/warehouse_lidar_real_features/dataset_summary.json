@@ -1,20 +1,24 @@
 {
   "binary_label_counts": {
-    "0": 2006,
-    "1": 1281
+    "0": 1293,
+    "1": 1400
   },
   "chunk_size": 50,
   "dataset_name": "warehouse_lidar_real_features",
   "dataset_root": "/home/923873155/Hackathon_18Apr/data/raw_real/Dataset",
+  "dropped_no_future_rows": 594,
+  "future_horizon_frames": 10,
   "multiclass_label_counts": {
-    "0": 2006,
-    "1": 1281
+    "0": 1293,
+    "1": 1267,
+    "2": 133
   },
-  "row_count": 3287,
+  "row_count": 2693,
+  "source_row_count": 3287,
   "split_counts": {
-    "test": 500,
-    "train": 2300,
-    "val": 487
+    "test": 397,
+    "train": 1886,
+    "val": 410
   },
   "target_columns": [
     "risk_label",

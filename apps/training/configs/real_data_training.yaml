@@ -1,6 +1,7 @@
 dataset_root: data/raw_real/lidar-warehouse-dataset
 dataset_name: warehouse_lidar_real_features
 chunk_size: 50
+future_horizon_frames: 10
 seed: 42
 train_size: 0.7
 val_size: 0.15
