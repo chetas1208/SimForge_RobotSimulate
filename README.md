@@ -218,6 +218,20 @@ ISAAC_RESULTS_DIR=/scratch/simforge/results
 
 ---
 
+## Track 4 Pipeline
+
+The repo now also includes a Track 4 stack with:
+
+- real-data warehouse LiDAR preprocessing and feature engineering
+- GPU XGBoost risk training
+- deterministic text-to-scenario parsing
+- OpenUSD + Isaac-preview generation
+- backend-callable inference service contracts
+
+See [README_TRACK4.md](/home/923873155/Hackathon_18Apr/README_TRACK4.md) for the exact setup, real-dataset run order, GPU selection commands, parser examples, and backend integration flow.
+
+---
+
 ## Folder Structure
 
 ```

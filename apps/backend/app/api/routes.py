@@ -1,5 +1,6 @@
 """API routes for SimForge backend."""
 
+import json
 import sys
 import uuid
 import asyncio
@@ -11,6 +12,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.database import get_db
 from app.db.models import (
     Scenario, ScenarioVariant, SimulationJob, OutputArtifact,
@@ -294,6 +296,127 @@ async def _run_mock_simulation(job_id: str):
         db.close()
 
 
+async def _run_track4_pipeline(job_id: str):
+    """Background task: generate scenario outputs and score them with XGBoost."""
+    await asyncio.sleep(0.25)
+    from app.db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        job = db.query(SimulationJob).filter(SimulationJob.id == job_id).first()
+        if not job:
+            return
+
+        scenario = db.query(Scenario).filter(Scenario.id == job.scenario_id).first()
+        variant = db.query(ScenarioVariant).filter(ScenarioVariant.id == job.variant_id).first()
+        if not scenario or not variant:
+            raise RuntimeError("Scenario or compiled variant missing for Track 4 pipeline job")
+
+        job.status = "preparing"
+        job.started_at = datetime.utcnow()
+        db.commit()
+        await asyncio.sleep(0.25)
+
+        job.status = "running"
+        db.commit()
+
+        from app.services.pipeline_service import run_backend_job
+
+        response = run_backend_job(
+            scenario=scenario,
+            variant=variant,
+            job_id=job_id,
+            model_dir=settings.TRACK4_MODEL_DIR,
+        )
+        if not response.generated_variants or not response.results:
+            raise RuntimeError("Track 4 pipeline returned no artifacts or results")
+
+        generated = response.generated_variants[0]
+        result = response.results[0]
+        feature_path = generated.model_features_path or generated.lidar_features_path
+        if not feature_path:
+            raise RuntimeError("Track 4 pipeline did not persist mapped model features")
+        features = json.loads(Path(feature_path).read_text(encoding="utf-8"))
+
+        job.status = "rendering"
+        db.commit()
+        await asyncio.sleep(0.1)
+
+        db.query(OutputArtifact).filter(OutputArtifact.job_id == job_id).delete()
+        existing_eval = db.query(EvaluationReport).filter(EvaluationReport.job_id == job_id).first()
+        if existing_eval:
+            db.delete(existing_eval)
+            db.commit()
+
+        for artifact_type, file_path in [
+            ("preview_video", generated.preview_video_path),
+            ("manifest_json", generated.manifest_path),
+            ("config_json", generated.scenario_config_path),
+            ("feature_json", feature_path),
+            ("log_file", generated.generation_log_path),
+            ("usd_scene", generated.scene_usd_path),
+        ]:
+            db.add(OutputArtifact(
+                id=_uid(),
+                job_id=job_id,
+                artifact_type=artifact_type,
+                file_path=file_path,
+                preview_path=generated.preview_video_path if artifact_type == "preview_video" else None,
+                metadata_json={
+                    "provider": "track4",
+                    "scenario_id": generated.scenario_id,
+                    "variant_index": generated.variant_index,
+                },
+            ))
+        db.commit()
+
+        db.add(EvaluationReport(
+            id=_uid(),
+            job_id=job_id,
+            collision_risk_score=result.risk_score,
+            occlusion_score=float(features.get("occlusion_proxy", 0.0)),
+            path_conflict_score=float(features.get("path_blockage_score", 0.0)),
+            severity_score=float(features.get("congestion_score", 0.0)),
+            diversity_score=min(1.0, (variant.variant_index + 1) / max(scenario.variant_count, 1)),
+            coverage_summary_json={
+                "environment_type": features.get("environment_type"),
+                "scenario_manifest_path": result.scenario_manifest_path,
+                "feature_schema_version": response.feature_schema_version,
+                "model_version": response.model_version,
+                "risk_label": result.risk_label.value,
+            },
+            explanation=result.explanation,
+            top_risk_factors=result.supporting_signals,
+            recommended_actions=result.recommended_actions,
+        ))
+        db.commit()
+
+        variant.status = "completed"
+        job.status = "completed"
+        job.completed_at = datetime.utcnow()
+        job.duration_seconds = (job.completed_at - job.started_at).total_seconds()
+        job.log_path = generated.generation_log_path
+        scenario.updated_at = datetime.utcnow()
+        db.commit()
+
+        scenario_jobs = db.query(SimulationJob).filter(SimulationJob.scenario_id == scenario.id).all()
+        if scenario_jobs and all(existing.status == "completed" for existing in scenario_jobs):
+            scenario.status = "completed"
+            db.commit()
+
+        _log_activity(db, "job_completed", "job", job_id, f"Track 4 job completed in {job.duration_seconds:.1f}s")
+    except Exception as e:
+        job = db.query(SimulationJob).filter(SimulationJob.id == job_id).first()
+        if job:
+            job.status = "failed"
+            job.error_message = str(e)
+            job.completed_at = datetime.utcnow()
+            db.commit()
+        _log_activity(db, "job_failed", "job", job_id, f"Track 4 job failed: {e}")
+    finally:
+        db.close()
+
+
 @router.post("/scenarios/{scenario_id}/run")
 async def submit_run(scenario_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     s = db.query(Scenario).filter(Scenario.id == scenario_id).first()
@@ -306,15 +429,19 @@ async def submit_run(scenario_id: str, background_tasks: BackgroundTasks, db: Se
 
     run_id = _uid()
     job_ids = []
+    provider_type = "isaac" if settings.SIMULATION_PROVIDER in {"isaac", "track4"} else "mock"
     for v in variants:
         job_id = _uid()
         job = SimulationJob(
             id=job_id, scenario_id=scenario_id, variant_id=v.id,
-            provider_type="mock", mode="mock", status="queued",
+            provider_type=provider_type, mode=settings.SIMULATION_PROVIDER, status="queued",
         )
         db.add(job)
         job_ids.append(job_id)
-        background_tasks.add_task(_run_mock_simulation, job_id)
+        if settings.SIMULATION_PROVIDER in {"isaac", "track4"}:
+            background_tasks.add_task(_run_track4_pipeline, job_id)
+        else:
+            background_tasks.add_task(_run_mock_simulation, job_id)
 
     s.status = "running"
     s.updated_at = datetime.utcnow()
@@ -366,7 +493,10 @@ async def retry_job(job_id: str, background_tasks: BackgroundTasks, db: Session 
     j.completed_at = None
     j.duration_seconds = None
     db.commit()
-    background_tasks.add_task(_run_mock_simulation, job_id)
+    if j.provider_type == "isaac" or j.mode in {"isaac", "track4"}:
+        background_tasks.add_task(_run_track4_pipeline, job_id)
+    else:
+        background_tasks.add_task(_run_mock_simulation, job_id)
     _log_activity(db, "job_retried", "job", job_id, "Job retried")
     return _job_to_dict(j)
 

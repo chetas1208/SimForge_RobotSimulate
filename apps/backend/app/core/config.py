@@ -11,6 +11,12 @@ class Settings:
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     STORAGE_ROOT: str = os.getenv("STORAGE_ROOT", "./storage")
     SIMULATION_PROVIDER: str = os.getenv("SIMULATION_PROVIDER", "mock")
+    TRACK4_MODEL_DIR: str = os.getenv("TRACK4_MODEL_DIR", "./models")
+    TRACK4_SCENARIO_CONFIG: str = os.getenv(
+        "TRACK4_SCENARIO_CONFIG",
+        "./apps/simulator/configs/warehouse_blind_corner.yaml",
+    )
+    XGBOOST_DEVICE: str = os.getenv("XGBOOST_DEVICE", "cuda:0")
     HPC_HOST: str = os.getenv("HPC_HOST", "")
     HPC_USER: str = os.getenv("HPC_USER", "")
     HPC_WORKDIR: str = os.getenv("HPC_WORKDIR", "")

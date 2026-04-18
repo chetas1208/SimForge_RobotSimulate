@@ -1,0 +1,5 @@
+numpy>=1.26.0
+imageio>=2.34.0
+PyYAML>=6.0.1
+pydantic>=2.5.0
+

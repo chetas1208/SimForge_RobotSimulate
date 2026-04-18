@@ -1,0 +1,42 @@
+[
+  {
+    "input": "low light warehouse aisle with one blind corner and two pedestrians",
+    "output": {
+      "environment": "blind_corner_aisle",
+      "lighting": "low",
+      "blind_corner": true,
+      "pedestrian_count": 2,
+      "forklift_count": 0,
+      "obstacle_density": "medium",
+      "camera_view": "overhead",
+      "difficulty": "hard"
+    }
+  },
+  {
+    "input": "narrow corridor with clutter and a forklift crossing ahead",
+    "output": {
+      "environment": "narrow_corridor",
+      "lighting": "normal",
+      "blind_corner": false,
+      "pedestrian_count": 0,
+      "forklift_count": 1,
+      "obstacle_density": "medium",
+      "camera_view": "overhead",
+      "difficulty": "medium"
+    }
+  },
+  {
+    "input": "high congestion loading zone with poor visibility",
+    "output": {
+      "environment": "loading_zone",
+      "lighting": "poor",
+      "blind_corner": false,
+      "pedestrian_count": 0,
+      "forklift_count": 0,
+      "obstacle_density": "high",
+      "camera_view": "overhead",
+      "difficulty": "hard"
+    }
+  }
+]
+

@@ -1,6 +1,15 @@
 // Shared TypeScript types — Artifacts
 
-export type ArtifactType = 'preview_video' | 'preview_image' | 'manifest_json' | 'labels_json' | 'evaluation_json' | 'log_file' | 'usd_scene'
+export type ArtifactType =
+  | 'preview_video'
+  | 'preview_image'
+  | 'manifest_json'
+  | 'config_json'
+  | 'feature_json'
+  | 'labels_json'
+  | 'evaluation_json'
+  | 'log_file'
+  | 'usd_scene'
 
 export interface OutputArtifact {
   id: string

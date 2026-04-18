@@ -1,0 +1,15 @@
+environment: blind_corner_aisle
+lighting: low
+blind_corner: true
+pedestrian_count: 2
+forklift_count: 1
+obstacle_density: medium
+camera_view: overhead
+difficulty: hard
+reflective_floor: true
+robot_speed_mps: 1.4
+pedestrian_speed_mps: 1.1
+num_variants: 4
+dropped_object: true
+crossing_event: true
+description: low light warehouse aisle with one blind corner and two pedestrians
