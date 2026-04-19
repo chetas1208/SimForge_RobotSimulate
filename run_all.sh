@@ -1,43 +1,54 @@
 #!/bin/bash
 
-# Start services (Optional docker services)
-echo "Starting Postgres and Redis (if Docker is available)..."
-docker-compose up -d || echo "Docker not available, skipping Postgres and Redis."
+set -euo pipefail
 
-# Start backend
-echo "Starting Backend..."
-cd apps/backend
-../../.venv/bin/pip install -r requirements.txt
-../../.venv/bin/pip install -e ../../packages/simforge-sdk
-if [ ! -f .env ]; then
-  cp .env.example .env
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_BIN="${ROOT_DIR}/.venv/bin"
+DASHBOARD_MODE="${SIMFORGE_DASHBOARD_MODE:-production}"
+
+if [ ! -x "${VENV_BIN}/python" ]; then
+  echo "Expected virtualenv at ${ROOT_DIR}/.venv"
+  echo "Create it first: python3 -m venv .venv"
+  exit 1
 fi
-nohup ../../.venv/bin/uvicorn main:app --reload --port 8000 > ../../backend.log 2>&1 &
+
+echo "Installing Python runtime dependencies..."
+"${VENV_BIN}/pip" install -r "${ROOT_DIR}/apps/backend/requirements.txt"
+"${VENV_BIN}/pip" install -r "${ROOT_DIR}/apps/parser/requirements.txt"
+"${VENV_BIN}/pip" install -r "${ROOT_DIR}/apps/simulator/requirements.txt"
+"${VENV_BIN}/pip" install -r "${ROOT_DIR}/apps/inference/requirements.txt"
+"${VENV_BIN}/pip" install -e "${ROOT_DIR}/packages/simforge-sdk"
+
+if [ -f "${ROOT_DIR}/docker-compose.yml" ] && command -v docker-compose >/dev/null 2>&1; then
+  echo "Starting optional Docker services..."
+  docker-compose -f "${ROOT_DIR}/docker-compose.yml" up -d || true
+fi
+
+if [ ! -f "${ROOT_DIR}/apps/backend/.env" ]; then
+  cp "${ROOT_DIR}/apps/backend/.env.example" "${ROOT_DIR}/apps/backend/.env"
+fi
+
+if [ ! -f "${ROOT_DIR}/apps/dashboard/.env" ]; then
+  cp "${ROOT_DIR}/apps/dashboard/.env.example" "${ROOT_DIR}/apps/dashboard/.env"
+fi
+
+echo "Starting backend..."
+cd "${ROOT_DIR}/apps/backend"
+nohup "${VENV_BIN}/uvicorn" main:app --host 0.0.0.0 --port 8000 > "${ROOT_DIR}/backend.log" 2>&1 &
 BACKEND_PID=$!
-echo "Backend PID: $BACKEND_PID"
 
-# Start dashboard (Nuxt)
-echo "Starting Nuxt Dashboard..."
-cd ../dashboard
+echo "Starting dashboard (${DASHBOARD_MODE})..."
+cd "${ROOT_DIR}/apps/dashboard"
 npm install
-if [ ! -f .env ]; then
-  cp .env.example .env
+if [ "${DASHBOARD_MODE}" = "production" ]; then
+  npm run build
+  nohup npm run start -- --host 0.0.0.0 --port 3000 > "${ROOT_DIR}/frontend.log" 2>&1 &
+else
+  nohup npm run dev -- --host 0.0.0.0 --port 3000 > "${ROOT_DIR}/frontend.log" 2>&1 &
 fi
-nohup npm run dev > ../../frontend.log 2>&1 &
 DASHBOARD_PID=$!
-echo "Dashboard PID: $DASHBOARD_PID"
 
-# Start frontend (Next.js) if it exists
-if [ -d "../frontend" ]; then
-  echo "Starting Next.js Frontend..."
-  cd ../frontend
-  npm install
-  nohup npm run dev > ../../nextjs.log 2>&1 &
-  NEXTJS_PID=$!
-  echo "Next.js PID: $NEXTJS_PID"
-fi
-
-cd ../..
-echo "All services are starting!"
-echo "Check backend.log, frontend.log, and nextjs.log for output."
-echo "PIDs: Backend($BACKEND_PID), Dashboard($DASHBOARD_PID), Next.js($NEXTJS_PID)"
+cd "${ROOT_DIR}"
+echo "Backend PID: ${BACKEND_PID}"
+echo "Dashboard PID: ${DASHBOARD_PID}"
+echo "Logs: ${ROOT_DIR}/backend.log and ${ROOT_DIR}/frontend.log"

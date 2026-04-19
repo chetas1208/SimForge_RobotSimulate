@@ -5,28 +5,36 @@ import sys
 import uuid
 import asyncio
 import random
-from datetime import datetime, timedelta
+import zipfile
+from datetime import timedelta
 from typing import Optional
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.time import seconds_between, utc_now
 from app.db.database import get_db
 from app.db.models import (
     Scenario, ScenarioVariant, SimulationJob, OutputArtifact,
     EvaluationReport, ActivityLog, SystemSetting,
 )
 
-# Add SDK to path
-SDK_PATH = str(Path(__file__).parent.parent.parent.parent / "packages" / "simforge-sdk")
+# Add project + SDK to path
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+SDK_PATH = str(PROJECT_ROOT / "packages" / "simforge-sdk")
 if SDK_PATH not in sys.path:
     sys.path.insert(0, SDK_PATH)
 
 from simforge.compiler import ScenarioCompiler
 from simforge.evaluation import EvaluationEngine
 from simforge.types import Scenario as SDKScenario, ScenarioVariant as SDKVariant
+from packages.utils import resolve_project_path, write_json
 
 router = APIRouter()
 compiler = ScenarioCompiler()
@@ -84,6 +92,7 @@ def _artifact_to_dict(a: OutputArtifact) -> dict:
     return {
         "id": a.id, "job_id": a.job_id, "artifact_type": a.artifact_type,
         "file_path": a.file_path, "preview_path": a.preview_path,
+        "download_url": f"/api/artifacts/{a.id}/download",
         "metadata": a.metadata_json, "created_at": a.created_at.isoformat() if a.created_at else None,
     }
 
@@ -97,6 +106,133 @@ def _eval_to_dict(e: EvaluationReport) -> dict:
         "explanation": e.explanation, "top_risk_factors": e.top_risk_factors,
         "recommended_actions": e.recommended_actions,
         "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+def _resolve_local_file_path(file_path: str | None) -> Path | None:
+    raw = (file_path or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("/storage/"):
+        return Path(settings.STORAGE_ROOT) / raw.removeprefix("/storage/").lstrip("/")
+
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        return candidate
+
+    project_candidate = resolve_project_path(candidate)
+    if project_candidate.exists():
+        return project_candidate
+
+    storage_candidate = Path(settings.STORAGE_ROOT) / raw.lstrip("/")
+    if storage_candidate.exists():
+        return storage_candidate
+    return project_candidate
+
+
+def _score_average(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(sum(values) / len(values), 4)
+
+
+def _build_scenario_results_payload(scenario_id: str, db: Session) -> dict:
+    scenario = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+
+    variants = (
+        db.query(ScenarioVariant)
+        .filter(ScenarioVariant.scenario_id == scenario_id)
+        .order_by(ScenarioVariant.variant_index)
+        .all()
+    )
+    jobs = (
+        db.query(SimulationJob)
+        .filter(SimulationJob.scenario_id == scenario_id)
+        .order_by(SimulationJob.submitted_at.desc())
+        .all()
+    )
+
+    latest_job_by_variant: dict[str, SimulationJob] = {}
+    for job in jobs:
+        if job.variant_id and job.variant_id not in latest_job_by_variant:
+            latest_job_by_variant[job.variant_id] = job
+
+    selected_job_ids = [job.id for job in latest_job_by_variant.values()]
+    evaluations = (
+        db.query(EvaluationReport)
+        .filter(EvaluationReport.job_id.in_(selected_job_ids))
+        .all()
+        if selected_job_ids
+        else []
+    )
+    artifacts = (
+        db.query(OutputArtifact)
+        .filter(OutputArtifact.job_id.in_(selected_job_ids))
+        .order_by(OutputArtifact.created_at.desc())
+        .all()
+        if selected_job_ids
+        else []
+    )
+
+    evaluation_by_job = {evaluation.job_id: evaluation for evaluation in evaluations}
+    artifacts_by_job: dict[str, list[OutputArtifact]] = {}
+    for artifact in artifacts:
+        artifacts_by_job.setdefault(artifact.job_id, []).append(artifact)
+
+    variant_results: list[dict] = []
+    completed_evaluations: list[EvaluationReport] = []
+    highest_risk_variant: dict | None = None
+    highest_risk_score = -1.0
+
+    for variant in variants:
+        job = latest_job_by_variant.get(variant.id)
+        evaluation = evaluation_by_job.get(job.id) if job else None
+        if evaluation:
+            completed_evaluations.append(evaluation)
+            if evaluation.collision_risk_score > highest_risk_score:
+                highest_risk_score = evaluation.collision_risk_score
+                highest_risk_variant = {
+                    "variant_id": variant.id,
+                    "variant_index": variant.variant_index,
+                    "job_id": job.id if job else None,
+                    "collision_risk_score": evaluation.collision_risk_score,
+                }
+
+        variant_results.append(
+            {
+                "variant": _variant_to_dict(variant),
+                "job": _job_to_dict(job) if job else None,
+                "evaluation": _eval_to_dict(evaluation) if evaluation else None,
+                "artifacts": [_artifact_to_dict(artifact) for artifact in artifacts_by_job.get(job.id, [])] if job else [],
+            }
+        )
+
+    status_counts: dict[str, int] = {}
+    for job in jobs:
+        status_counts[job.status] = status_counts.get(job.status, 0) + 1
+
+    summary = {
+        "variant_count": len(variants),
+        "job_count": len(jobs),
+        "completed_jobs": status_counts.get("completed", 0),
+        "failed_jobs": status_counts.get("failed", 0),
+        "queued_jobs": status_counts.get("queued", 0),
+        "status_counts": status_counts,
+        "avg_collision_risk_score": _score_average([item.collision_risk_score for item in completed_evaluations]),
+        "avg_occlusion_score": _score_average([item.occlusion_score for item in completed_evaluations]),
+        "avg_path_conflict_score": _score_average([item.path_conflict_score for item in completed_evaluations]),
+        "avg_severity_score": _score_average([item.severity_score for item in completed_evaluations]),
+        "avg_diversity_score": _score_average([item.diversity_score for item in completed_evaluations]),
+        "highest_risk_variant": highest_risk_variant,
+        "export_url": f"/api/scenarios/{scenario_id}/export",
+    }
+
+    return {
+        "scenario": _scenario_to_dict(scenario),
+        "summary": summary,
+        "variant_results": variant_results,
     }
 
 
@@ -141,7 +277,7 @@ def update_scenario(scenario_id: str, data: dict, db: Session = Depends(get_db))
     for key, value in data.items():
         if hasattr(s, key) and key not in ("id", "created_at"):
             setattr(s, key, value)
-    s.updated_at = datetime.utcnow()
+    s.updated_at = utc_now()
     db.commit()
     db.refresh(s)
     return _scenario_to_dict(s)
@@ -188,7 +324,7 @@ def compile_scenario(scenario_id: str, db: Session = Depends(get_db)):
         db_variants.append(dbv)
 
     s.status = "compiled"
-    s.updated_at = datetime.utcnow()
+    s.updated_at = utc_now()
     db.commit()
 
     _log_activity(db, "scenario_compiled", "scenario", scenario_id,
@@ -202,6 +338,65 @@ def list_variants(scenario_id: str, db: Session = Depends(get_db)):
         ScenarioVariant.scenario_id == scenario_id
     ).order_by(ScenarioVariant.variant_index).all()
     return [_variant_to_dict(v) for v in variants]
+
+
+@router.get("/scenarios/{scenario_id}/results")
+def get_scenario_results(scenario_id: str, db: Session = Depends(get_db)):
+    return _build_scenario_results_payload(scenario_id, db)
+
+
+@router.get("/scenarios/{scenario_id}/export")
+def export_scenario_results(scenario_id: str, db: Session = Depends(get_db)):
+    payload = _build_scenario_results_payload(scenario_id, db)
+    export_dir = Path(settings.STORAGE_ROOT) / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = export_dir / f"simforge_{scenario_id}.zip"
+
+    missing_files: list[dict[str, str]] = []
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "scenario_results.json",
+            json.dumps(payload, indent=2, sort_keys=True),
+        )
+        for item in payload["variant_results"]:
+            variant = item["variant"]
+            evaluation = item["evaluation"]
+            variant_dir = f"variants/variant_{variant['variant_index']:02d}"
+            archive.writestr(
+                f"{variant_dir}/variant.json",
+                json.dumps(item, indent=2, sort_keys=True),
+            )
+            if evaluation:
+                archive.writestr(
+                    f"{variant_dir}/evaluation.json",
+                    json.dumps(evaluation, indent=2, sort_keys=True),
+                )
+            for artifact in item["artifacts"]:
+                resolved_path = _resolve_local_file_path(artifact["file_path"])
+                if not resolved_path or not resolved_path.exists():
+                    missing_files.append(
+                        {
+                            "artifact_id": artifact["id"],
+                            "artifact_type": artifact["artifact_type"],
+                            "file_path": artifact["file_path"],
+                        }
+                    )
+                    continue
+                archive.write(
+                    resolved_path,
+                    arcname=f"{variant_dir}/artifacts/{artifact['artifact_type']}_{resolved_path.name}",
+                )
+        if missing_files:
+            archive.writestr(
+                "missing_files.json",
+                json.dumps(missing_files, indent=2, sort_keys=True),
+            )
+
+    return FileResponse(
+        path=archive_path,
+        media_type="application/zip",
+        filename=f"simforge_{scenario_id}.zip",
+    )
 
 
 # ── Runs / Jobs ───────────────────────────────────────────────────────────
@@ -218,7 +413,7 @@ async def _run_mock_simulation(job_id: str):
 
         # preparing
         job.status = "preparing"
-        job.started_at = datetime.utcnow()
+        job.started_at = utc_now()
         db.commit()
         await asyncio.sleep(2)
 
@@ -235,8 +430,8 @@ async def _run_mock_simulation(job_id: str):
         # completed
         rng = random.Random(hash(job_id))
         job.status = "completed"
-        job.completed_at = datetime.utcnow()
-        job.duration_seconds = (job.completed_at - job.started_at).total_seconds()
+        job.completed_at = utc_now()
+        job.duration_seconds = seconds_between(job.started_at, job.completed_at)
         db.commit()
 
         # Generate artifacts
@@ -290,13 +485,21 @@ async def _run_mock_simulation(job_id: str):
         if job:
             job.status = "failed"
             job.error_message = str(e)
-            job.completed_at = datetime.utcnow()
+            job.completed_at = utc_now()
             db.commit()
     finally:
         db.close()
 
 
 async def _run_track4_pipeline(job_id: str):
+    await _run_generated_pipeline(job_id=job_id, use_isaac_runtime=False)
+
+
+async def _run_isaac_pipeline(job_id: str):
+    await _run_generated_pipeline(job_id=job_id, use_isaac_runtime=True)
+
+
+async def _run_generated_pipeline(job_id: str, use_isaac_runtime: bool):
     """Background task: generate scenario outputs and score them with XGBoost."""
     await asyncio.sleep(0.25)
     from app.db.database import SessionLocal
@@ -313,7 +516,7 @@ async def _run_track4_pipeline(job_id: str):
             raise RuntimeError("Scenario or compiled variant missing for Track 4 pipeline job")
 
         job.status = "preparing"
-        job.started_at = datetime.utcnow()
+        job.started_at = utc_now()
         db.commit()
         await asyncio.sleep(0.25)
 
@@ -327,6 +530,7 @@ async def _run_track4_pipeline(job_id: str):
             variant=variant,
             job_id=job_id,
             model_dir=settings.TRACK4_MODEL_DIR,
+            use_isaac_runtime=use_isaac_runtime,
         )
         if not response.generated_variants or not response.results:
             raise RuntimeError("Track 4 pipeline returned no artifacts or results")
@@ -337,6 +541,25 @@ async def _run_track4_pipeline(job_id: str):
         if not feature_path:
             raise RuntimeError("Track 4 pipeline did not persist mapped model features")
         features = json.loads(Path(feature_path).read_text(encoding="utf-8"))
+        evaluation_payload = {
+            "job_id": job_id,
+            "scenario_id": generated.scenario_id,
+            "variant_index": generated.variant_index,
+            "risk_score": result.risk_score,
+            "risk_label": result.risk_label.value,
+            "occlusion_score": float(features.get("occlusion_proxy", 0.0)),
+            "path_conflict_score": float(features.get("path_blockage_score", 0.0)),
+            "severity_score": float(features.get("congestion_score", 0.0)),
+            "diversity_score": min(1.0, (variant.variant_index + 1) / max(scenario.variant_count, 1)),
+            "feature_schema_version": response.feature_schema_version,
+            "model_version": response.model_version,
+            "scenario_manifest_path": result.scenario_manifest_path,
+            "supporting_signals": result.supporting_signals,
+            "recommended_actions": result.recommended_actions,
+            "explanation": result.explanation,
+        }
+        evaluation_path = Path(generated.generation_log_path).with_name("evaluation_report.json")
+        write_json(evaluation_path, evaluation_payload)
 
         job.status = "rendering"
         db.commit()
@@ -353,6 +576,7 @@ async def _run_track4_pipeline(job_id: str):
             ("manifest_json", generated.manifest_path),
             ("config_json", generated.scenario_config_path),
             ("feature_json", feature_path),
+            ("evaluation_json", str(evaluation_path)),
             ("log_file", generated.generation_log_path),
             ("usd_scene", generated.scene_usd_path),
         ]:
@@ -363,7 +587,7 @@ async def _run_track4_pipeline(job_id: str):
                 file_path=file_path,
                 preview_path=generated.preview_video_path if artifact_type == "preview_video" else None,
                 metadata_json={
-                    "provider": "track4",
+                    "provider": "isaac" if use_isaac_runtime else "track4",
                     "scenario_id": generated.scenario_id,
                     "variant_index": generated.variant_index,
                 },
@@ -373,11 +597,11 @@ async def _run_track4_pipeline(job_id: str):
         db.add(EvaluationReport(
             id=_uid(),
             job_id=job_id,
-            collision_risk_score=result.risk_score,
-            occlusion_score=float(features.get("occlusion_proxy", 0.0)),
-            path_conflict_score=float(features.get("path_blockage_score", 0.0)),
-            severity_score=float(features.get("congestion_score", 0.0)),
-            diversity_score=min(1.0, (variant.variant_index + 1) / max(scenario.variant_count, 1)),
+            collision_risk_score=evaluation_payload["risk_score"],
+            occlusion_score=evaluation_payload["occlusion_score"],
+            path_conflict_score=evaluation_payload["path_conflict_score"],
+            severity_score=evaluation_payload["severity_score"],
+            diversity_score=evaluation_payload["diversity_score"],
             coverage_summary_json={
                 "environment_type": features.get("environment_type"),
                 "scenario_manifest_path": result.scenario_manifest_path,
@@ -393,10 +617,10 @@ async def _run_track4_pipeline(job_id: str):
 
         variant.status = "completed"
         job.status = "completed"
-        job.completed_at = datetime.utcnow()
-        job.duration_seconds = (job.completed_at - job.started_at).total_seconds()
+        job.completed_at = utc_now()
+        job.duration_seconds = seconds_between(job.started_at, job.completed_at)
         job.log_path = generated.generation_log_path
-        scenario.updated_at = datetime.utcnow()
+        scenario.updated_at = utc_now()
         db.commit()
 
         scenario_jobs = db.query(SimulationJob).filter(SimulationJob.scenario_id == scenario.id).all()
@@ -404,15 +628,17 @@ async def _run_track4_pipeline(job_id: str):
             scenario.status = "completed"
             db.commit()
 
-        _log_activity(db, "job_completed", "job", job_id, f"Track 4 job completed in {job.duration_seconds:.1f}s")
+        provider_label = "Isaac runtime" if use_isaac_runtime else "Track 4"
+        _log_activity(db, "job_completed", "job", job_id, f"{provider_label} job completed in {job.duration_seconds:.1f}s")
     except Exception as e:
         job = db.query(SimulationJob).filter(SimulationJob.id == job_id).first()
         if job:
             job.status = "failed"
             job.error_message = str(e)
-            job.completed_at = datetime.utcnow()
+            job.completed_at = utc_now()
             db.commit()
-        _log_activity(db, "job_failed", "job", job_id, f"Track 4 job failed: {e}")
+        provider_label = "Isaac runtime" if use_isaac_runtime else "Track 4"
+        _log_activity(db, "job_failed", "job", job_id, f"{provider_label} job failed: {e}")
     finally:
         db.close()
 
@@ -429,7 +655,7 @@ async def submit_run(scenario_id: str, background_tasks: BackgroundTasks, db: Se
 
     run_id = _uid()
     job_ids = []
-    provider_type = "isaac" if settings.SIMULATION_PROVIDER in {"isaac", "track4"} else "mock"
+    provider_type = settings.SIMULATION_PROVIDER if settings.SIMULATION_PROVIDER in {"mock", "isaac", "track4"} else "mock"
     for v in variants:
         job_id = _uid()
         job = SimulationJob(
@@ -438,13 +664,15 @@ async def submit_run(scenario_id: str, background_tasks: BackgroundTasks, db: Se
         )
         db.add(job)
         job_ids.append(job_id)
-        if settings.SIMULATION_PROVIDER in {"isaac", "track4"}:
+        if settings.SIMULATION_PROVIDER == "isaac":
+            background_tasks.add_task(_run_isaac_pipeline, job_id)
+        elif settings.SIMULATION_PROVIDER == "track4":
             background_tasks.add_task(_run_track4_pipeline, job_id)
         else:
             background_tasks.add_task(_run_mock_simulation, job_id)
 
     s.status = "running"
-    s.updated_at = datetime.utcnow()
+    s.updated_at = utc_now()
     db.commit()
 
     _log_activity(db, "run_submitted", "scenario", scenario_id,
@@ -493,7 +721,9 @@ async def retry_job(job_id: str, background_tasks: BackgroundTasks, db: Session 
     j.completed_at = None
     j.duration_seconds = None
     db.commit()
-    if j.provider_type == "isaac" or j.mode in {"isaac", "track4"}:
+    if j.mode == "isaac":
+        background_tasks.add_task(_run_isaac_pipeline, job_id)
+    elif j.mode == "track4":
         background_tasks.add_task(_run_track4_pipeline, job_id)
     else:
         background_tasks.add_task(_run_mock_simulation, job_id)
@@ -515,6 +745,31 @@ def get_artifact(artifact_id: str, db: Session = Depends(get_db)):
     if not a:
         raise HTTPException(404, "Artifact not found")
     return _artifact_to_dict(a)
+
+
+@router.get("/artifacts/{artifact_id}/download")
+def download_artifact(artifact_id: str, db: Session = Depends(get_db)):
+    artifact = db.query(OutputArtifact).filter(OutputArtifact.id == artifact_id).first()
+    if not artifact:
+        raise HTTPException(404, "Artifact not found")
+
+    resolved_path = _resolve_local_file_path(artifact.file_path)
+    if not resolved_path or not resolved_path.exists():
+        raise HTTPException(404, "Artifact file not found on disk")
+
+    media_type = "application/octet-stream"
+    if artifact.artifact_type == "preview_video":
+        media_type = "video/mp4"
+    elif artifact.artifact_type in {"manifest_json", "config_json", "feature_json", "evaluation_json"}:
+        media_type = "application/json"
+    elif artifact.artifact_type == "log_file":
+        media_type = "text/plain"
+
+    return FileResponse(
+        path=resolved_path,
+        media_type=media_type,
+        filename=resolved_path.name,
+    )
 
 
 @router.get("/jobs/{job_id}/artifacts")
@@ -567,7 +822,7 @@ def update_settings(data: dict, db: Session = Depends(get_db)):
         setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
         if setting:
             setting.value = str(value)
-            setting.updated_at = datetime.utcnow()
+            setting.updated_at = utc_now()
         else:
             db.add(SystemSetting(id=_uid(), key=key, value=str(value)))
     db.commit()

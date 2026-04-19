@@ -10,6 +10,7 @@ export type ArtifactType =
   | 'evaluation_json'
   | 'log_file'
   | 'usd_scene'
+  | 'prompt_json'
 
 export interface OutputArtifact {
   id: string
@@ -17,6 +18,7 @@ export interface OutputArtifact {
   artifact_type: ArtifactType
   file_path: string
   preview_path: string | null
+  download_url?: string
   metadata: Record<string, any>
   created_at: string
 }

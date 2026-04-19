@@ -2,6 +2,7 @@
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,8 @@ from app.api.routes import router as api_router
 async def lifespan(app: FastAPI):
     """Application lifespan — init DB and seed data."""
     init_db()
-    seed_database()
+    if settings.ENABLE_DEMO_SEED:
+        seed_database()
     # Create storage directory
     os.makedirs(settings.STORAGE_ROOT, exist_ok=True)
     yield
@@ -39,7 +41,8 @@ app.add_middleware(
 )
 
 # Mount static files for artifact serving
-os.makedirs("storage", exist_ok=True)
-app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+storage_root = Path(settings.STORAGE_ROOT)
+storage_root.mkdir(parents=True, exist_ok=True)
+app.mount("/storage", StaticFiles(directory=str(storage_root)), name="storage")
 
 app.include_router(api_router, prefix="/api")

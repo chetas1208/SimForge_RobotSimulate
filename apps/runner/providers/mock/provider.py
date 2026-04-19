@@ -4,10 +4,15 @@ import json
 import os
 import random
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from apps.runner.providers import SimulationProvider
+
+
+def utc_now_iso() -> str:
+    """Return an ISO8601 UTC timestamp."""
+    return datetime.now(UTC).isoformat()
 
 
 class MockSimulationProvider(SimulationProvider):
@@ -37,7 +42,7 @@ class MockSimulationProvider(SimulationProvider):
             "job_id": job_id,
             "work_dir": work_dir,
             "variant_params": variant_params,
-            "prepared_at": datetime.utcnow().isoformat(),
+            "prepared_at": utc_now_iso(),
         }
 
     async def submit_run(self, job_id: str, preparation: dict) -> dict:
@@ -57,7 +62,7 @@ class MockSimulationProvider(SimulationProvider):
             "resolution": [1920, 1080],
             "fps": 30,
             "render_engine": "mock_renderer",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         }
         with open(f"{work_dir}/manifest.json", "w") as f:
             json.dump(manifest, f, indent=2)
@@ -68,6 +73,7 @@ class MockSimulationProvider(SimulationProvider):
             "objects": [
                 {"type": "amr", "id": "robot_01", "frames_visible": manifest["frame_count"]},
                 {"type": "human", "id": "human_01", "frames_visible": int(manifest["frame_count"] * 0.6) if params.get("human_present") else 0},
+            ] + [
                 {"type": "obstacle", "id": f"box_{i}", "frames_visible": manifest["frame_count"]}
                 for i in range(params.get("obstacle_count", 1))
             ],
@@ -81,11 +87,11 @@ class MockSimulationProvider(SimulationProvider):
 
         # Generate log
         log_lines = [
-            f"[{datetime.utcnow().isoformat()}] MockSimulation started for job {job_id}",
-            f"[{datetime.utcnow().isoformat()}] Loading environment: {params.get('environment_template', 'warehouse_aisle')}",
-            f"[{datetime.utcnow().isoformat()}] Spawning actors: AMR, Human (present={params.get('human_present', False)})",
-            f"[{datetime.utcnow().isoformat()}] Rendering {manifest['frame_count']} frames at {manifest['fps']}fps",
-            f"[{datetime.utcnow().isoformat()}] Simulation completed successfully",
+            f"[{utc_now_iso()}] MockSimulation started for job {job_id}",
+            f"[{utc_now_iso()}] Loading environment: {params.get('environment_template', 'warehouse_aisle')}",
+            f"[{utc_now_iso()}] Spawning actors: AMR, Human (present={params.get('human_present', False)})",
+            f"[{utc_now_iso()}] Rendering {manifest['frame_count']} frames at {manifest['fps']}fps",
+            f"[{utc_now_iso()}] Simulation completed successfully",
         ]
         with open(f"{work_dir}/simulation.log", "w") as f:
             f.write("\n".join(log_lines))

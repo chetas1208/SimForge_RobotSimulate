@@ -2,8 +2,9 @@
 
 import uuid
 import random
-from datetime import datetime, timedelta
+from datetime import timedelta
 
+from app.core.time import utc_now
 from app.db.database import SessionLocal
 from app.db.models import (
     Scenario, ScenarioVariant, SimulationJob, OutputArtifact,
@@ -24,7 +25,7 @@ def seed_database():
             db.close()
             return
 
-        now = datetime.utcnow()
+        now = utc_now()
         rng = random.Random(42)
 
         # ── Scenarios ──

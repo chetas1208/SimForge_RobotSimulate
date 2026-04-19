@@ -6,11 +6,16 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.db.models import Base
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
-    echo=False,
-)
+engine_kwargs = {
+    "echo": False,
+    "pool_pre_ping": True,
+}
+if "sqlite" in settings.DATABASE_URL:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_recycle"] = 300
+
+engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

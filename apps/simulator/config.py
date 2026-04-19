@@ -25,6 +25,7 @@ class SimulatorSettings:
     )
     use_isaac: bool = _env_flag("SIMFORGE_USE_ISAAC", default=False)
     headless: bool = _env_flag("SIMFORGE_HEADLESS", default=True)
+    preview_provider: str = os.getenv("PREVIEW_PROVIDER", "renderer")
     preview_fps: int = int(os.getenv("SIMFORGE_PREVIEW_FPS", "12"))
     preview_stride: int = int(os.getenv("SIMFORGE_PREVIEW_STRIDE", "2"))
 

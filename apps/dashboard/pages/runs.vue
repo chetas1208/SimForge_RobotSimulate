@@ -1,5 +1,16 @@
 <template>
   <div class="space-y-6">
+    <div v-if="scenarioId" class="glass-card p-4 flex items-center justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-surface-500">Scenario Runs</p>
+        <h2 class="text-lg font-semibold text-white font-display">{{ scenarioId }}</h2>
+      </div>
+      <div class="flex items-center gap-2">
+        <NuxtLink :to="`/evaluation?scenarioId=${scenarioId}`" class="btn-ghost text-sm">Compare</NuxtLink>
+        <NuxtLink :to="`/outputs?scenarioId=${scenarioId}`" class="btn-ghost text-sm">Outputs</NuxtLink>
+      </div>
+    </div>
+
     <!-- Filters -->
     <div class="flex items-center gap-3 flex-wrap">
       <select v-model="statusFilter" class="select-field w-40">
@@ -67,9 +78,11 @@
 
 <script setup lang="ts">
 const api = useApi()
+const route = useRoute()
 const statusFilter = ref('')
 const jobs = ref<any[]>([])
 const errorModal = ref<string | null>(null)
+const scenarioId = computed(() => typeof route.query.scenarioId === 'string' ? route.query.scenarioId : '')
 
 const filtered = computed(() => {
   if (!statusFilter.value) return jobs.value
@@ -79,7 +92,9 @@ const filtered = computed(() => {
 const formatDate = (d: string) => d ? new Date(d).toLocaleString() : '—'
 
 const loadJobs = async () => {
-  try { jobs.value = await api.getJobs() } catch (e) { console.error(e) }
+  try {
+    jobs.value = await api.getJobs(scenarioId.value ? { scenario_id: scenarioId.value } : undefined)
+  } catch (e) { console.error(e) }
 }
 
 const retryJob = async (id: string) => {
@@ -94,6 +109,7 @@ const showError = (job: any) => {
 }
 
 onMounted(loadJobs)
+watch(scenarioId, loadJobs)
 
 // Auto-refresh every 5 seconds
 const interval = setInterval(loadJobs, 5000)

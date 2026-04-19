@@ -212,6 +212,12 @@ Run from the Isaac Sim install root:
 
 The standalone script launches `SimulationApp({"headless": True})`, opens the generated USDA stage, advances the simulation timeline, and writes an `isaac_capture.json` sidecar file.
 
+For the full backend + dashboard + Isaac launch path on a GPU node, use [docs/HPC_ISAAC_RUNBOOK.md](/home/923873155/Hackathon_18Apr/docs/HPC_ISAAC_RUNBOOK.md) and the repo launcher:
+
+```bash
+./start_hpc_isaac.sh
+```
+
 ### 8. Call the backend-friendly inference service
 
 Python example:

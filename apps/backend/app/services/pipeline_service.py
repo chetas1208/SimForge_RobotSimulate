@@ -22,6 +22,17 @@ OBSTACLE_LEVEL_MAP = {
     "extreme": 4,
 }
 
+LIGHTING_PRESET_MAP = {
+    "bright": LightingLevel.BRIGHT.value,
+    "normal": LightingLevel.NORMAL.value,
+    "low": LightingLevel.LOW.value,
+    "low_light": LightingLevel.LOW.value,
+    "poor": LightingLevel.POOR.value,
+    "high_contrast": LightingLevel.POOR.value,
+    "flickering": LightingLevel.POOR.value,
+    "emergency": LightingLevel.EMERGENCY.value,
+}
+
 
 def _infer_difficulty(scenario) -> DifficultyLevel:
     density = scenario.human_crossing_probability + (OBSTACLE_LEVEL_MAP.get(scenario.dropped_obstacle_level, 1) * 0.2)
@@ -36,7 +47,12 @@ def _infer_difficulty(scenario) -> DifficultyLevel:
     return DifficultyLevel.EASY
 
 
-def build_request_from_scenario(scenario, variant=None, job_id: str | None = None) -> ScenarioGenerationRequest:
+def build_request_from_scenario(
+    scenario,
+    variant=None,
+    job_id: str | None = None,
+    use_isaac_runtime: bool = False,
+) -> ScenarioGenerationRequest:
     variant_params = getattr(variant, "variant_parameters_json", None) or {}
     obstacle_count = int(variant_params.get("obstacle_count", OBSTACLE_LEVEL_MAP.get(scenario.dropped_obstacle_level, 1)))
     human_present = variant_params.get("human_present")
@@ -48,9 +64,7 @@ def build_request_from_scenario(scenario, variant=None, job_id: str | None = Non
     reflective_floor = bool(variant_params.get("visibility_modifier", 1.0) < 0.85)
     blind_corner = "blind_corner" in scenario.robot_path_type
     camera_view = scenario.camera_mode
-    lighting_value = scenario.lighting_preset
-    if lighting_value not in {level.value for level in LightingLevel}:
-        lighting_value = LightingLevel.NORMAL.value
+    lighting_value = LIGHTING_PRESET_MAP.get(str(scenario.lighting_preset), LightingLevel.NORMAL.value)
 
     return ScenarioGenerationRequest(
         job_id=job_id or getattr(scenario, "id", None) or "scenario-job",
@@ -70,7 +84,7 @@ def build_request_from_scenario(scenario, variant=None, job_id: str | None = Non
         camera_view=camera_view,
         num_variants=1,
         base_seed=getattr(variant, "deterministic_seed", None) or scenario.random_seed,
-        use_isaac=True,
+        use_isaac=use_isaac_runtime,
         headless=True,
         metadata={
             "scenario_id": scenario.id,
@@ -79,7 +93,18 @@ def build_request_from_scenario(scenario, variant=None, job_id: str | None = Non
     )
 
 
-def run_backend_job(scenario, variant, job_id: str, model_dir: str):
-    request = build_request_from_scenario(scenario=scenario, variant=variant, job_id=job_id)
+def run_backend_job(
+    scenario,
+    variant,
+    job_id: str,
+    model_dir: str,
+    use_isaac_runtime: bool = False,
+):
+    request = build_request_from_scenario(
+        scenario=scenario,
+        variant=variant,
+        job_id=job_id,
+        use_isaac_runtime=use_isaac_runtime,
+    )
     service = ScenarioRiskScoringService(model_dir=model_dir)
     return service.generate_and_score(request)

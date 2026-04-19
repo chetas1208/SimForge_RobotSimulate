@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Optional
 
@@ -24,6 +24,7 @@ class JobStatus(str, Enum):
 class ProviderType(str, Enum):
     MOCK = "mock"
     ISAAC = "isaac"
+    TRACK4 = "track4"
 
 
 class LightingPreset(str, Enum):
@@ -70,10 +71,13 @@ class ArtifactType(str, Enum):
     PREVIEW_VIDEO = "preview_video"
     PREVIEW_IMAGE = "preview_image"
     MANIFEST_JSON = "manifest_json"
+    CONFIG_JSON = "config_json"
+    FEATURE_JSON = "feature_json"
     LABELS_JSON = "labels_json"
     EVALUATION_JSON = "evaluation_json"
     LOG_FILE = "log_file"
     USD_SCENE = "usd_scene"
+    PROMPT_JSON = "prompt_json"
 
 
 class ScenarioStatus(str, Enum):
@@ -85,6 +89,10 @@ class ScenarioStatus(str, Enum):
 
 
 # ─── Models ───────────────────────────────────────────────────────────────────
+
+def utc_now() -> datetime:
+    """Return a timezone-aware UTC timestamp."""
+    return datetime.now(UTC)
 
 class Scenario(BaseModel):
     """A structured warehouse edge-case scenario definition."""
@@ -103,8 +111,8 @@ class Scenario(BaseModel):
     random_seed: int = Field(default=42)
     notes: str = Field(default="")
     status: ScenarioStatus = ScenarioStatus.DRAFT
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -118,7 +126,7 @@ class ScenarioVariant(BaseModel):
     variant_parameters: dict[str, Any] = Field(default_factory=dict)
     deterministic_seed: int
     status: JobStatus = JobStatus.QUEUED
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -132,7 +140,7 @@ class SimulationRun(BaseModel):
     provider_type: ProviderType = ProviderType.MOCK
     mode: str = "mock"
     status: JobStatus = JobStatus.QUEUED
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: datetime = Field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     duration_seconds: Optional[float] = None
@@ -151,7 +159,7 @@ class Artifact(BaseModel):
     file_path: str
     preview_path: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -170,7 +178,7 @@ class EvaluationReport(BaseModel):
     explanation: str = ""
     top_risk_factors: list[str] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class SubmitRunResponse(BaseModel):

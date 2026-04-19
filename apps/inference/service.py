@@ -9,6 +9,7 @@ from apps.inference.feature_mapping import map_scenario_config_path_to_model_fea
 from apps.inference.model import RiskScoringModel
 from apps.parser import RuleBasedScenarioParser
 from apps.simulator.pipeline import WarehouseScenarioPipeline
+from apps.simulator.isaac_runtime import generate_with_isaac_runtime
 from packages.shared_schema import (
     InferenceResponse,
     ParsedScenario,
@@ -48,7 +49,7 @@ class WarehouseSafetyService:
         parsed_scenario: ParsedScenario | None = None,
     ) -> PipelineJobResponse:
         parsed = parsed_scenario or self._parsed_from_request(request)
-        generated = self.pipeline.generate(request)
+        generated = generate_with_isaac_runtime(request) if request.use_isaac else self.pipeline.generate(request)
         results: list[InferenceResponse] = []
         for artifact in generated:
             feature_row = map_scenario_config_path_to_model_features(

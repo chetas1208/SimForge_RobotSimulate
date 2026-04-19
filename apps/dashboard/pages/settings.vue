@@ -8,14 +8,15 @@
           <label class="label-text">Active Provider</label>
           <select v-model="settings.simulation_provider" class="select-field w-64">
             <option value="mock">Mock (Local Development)</option>
+            <option value="track4">Track 4 (Local HPC Pipeline)</option>
             <option value="isaac">Isaac Sim (Remote HPC)</option>
           </select>
         </div>
-        <div v-if="settings.simulation_provider === 'mock'" class="p-4 rounded-lg bg-success/5 border border-success/20">
-          <p class="text-sm text-success">✓ Mock provider is active. No GPU required.</p>
-          <p class="text-xs text-surface-500 mt-1">Simulation jobs will generate placeholder outputs for development and demo.</p>
+        <div v-if="settings.simulation_provider === 'track4'" class="p-4 rounded-lg bg-primary/5 border border-primary/20">
+          <p class="text-sm text-primary">✓ Track 4 provider is active. Local scenario generation and XGBoost scoring will run on this host.</p>
+          <p class="text-xs text-surface-500 mt-1">Use this when the backend and model runtime live on the same HPC node.</p>
         </div>
-        <div v-else class="p-4 rounded-lg bg-warning/5 border border-warning/20">
+        <div v-else-if="settings.simulation_provider === 'isaac'" class="p-4 rounded-lg bg-warning/5 border border-warning/20">
           <p class="text-sm text-warning">⚠ Isaac Sim provider requires remote HPC configuration.</p>
           <p class="text-xs text-surface-500 mt-1">Configure HPC connection details below.</p>
         </div>
@@ -44,7 +45,7 @@
     <!-- HPC Settings -->
     <div class="glass-card p-6">
       <h3 class="section-title mb-5">HPC Configuration</h3>
-      <p class="text-sm text-surface-500 mb-4">Remote HPC settings for Isaac Sim execution. Leave empty when using mock provider.</p>
+      <p class="text-sm text-surface-500 mb-4">Remote HPC settings for Isaac Sim execution.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="label-text">HPC Host</label>

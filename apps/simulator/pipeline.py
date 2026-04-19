@@ -23,6 +23,12 @@ class WarehouseScenarioPipeline:
         self.settings = settings or SimulatorSettings()
         self.logger = get_logger("simforge.track4.simulator")
         self.builder = WarehouseBlindCornerSceneBuilder()
+        self.preview_provider = self.settings.preview_provider.strip().lower()
+        self.preview_service = None
+        if self.preview_provider == "seedance":
+            from apps.runner.preview_services.seedance.service import SeedancePreviewService
+
+            self.preview_service = SeedancePreviewService()
 
     def generate_from_path(
         self,
@@ -41,13 +47,7 @@ class WarehouseScenarioPipeline:
         for variant in self.builder.build_variants(request):
             paths = build_scenario_paths(request.job_id, variant.scenario_id)
             bundle = self.builder.simulate_variant(variant)
-            preview_path, preview_asset_type = render_preview(
-                bundle.annotations,
-                variant,
-                paths.preview_dir / f"{variant.scenario_id}_preview",
-                fps=self.settings.preview_fps,
-                stride=self.settings.preview_stride,
-            )
+            preview_path, preview_asset_type = self._generate_preview(bundle, variant, paths)
 
             manifest_path = paths.root_dir / "scenario_manifest.json"
             scenario_config_path = paths.root_dir / "scenario_config.json"
@@ -99,6 +99,31 @@ class WarehouseScenarioPipeline:
             )
             self.logger.info("Generated scenario %s for job %s", variant.scenario_id, request.job_id)
         return artifacts
+
+    def _generate_preview(self, bundle, variant, paths) -> tuple[Path, str]:
+        if self.preview_service is not None:
+            try:
+                concept_path = paths.preview_dir / f"{variant.scenario_id}_concept.mp4"
+                preview = self.preview_service.generate_preview(
+                    scenario_config=bundle.scenario_config,
+                    manifest=bundle.manifest.model_dump(mode="json"),
+                    output_path=concept_path,
+                    scene_usda=bundle.scene_usda,
+                )
+                bundle.metadata.notes.append("preview_provider=seedance")
+                return Path(preview["video_path"]), "preview_video"
+            except Exception as exc:
+                self.logger.warning("Seedance preview failed for %s: %s", variant.scenario_id, exc)
+                bundle.metadata.notes.append(f"preview_fallback={exc}")
+
+        bundle.metadata.notes.append("preview_provider=renderer")
+        return render_preview(
+            bundle.annotations,
+            variant,
+            paths.preview_dir / f"{variant.scenario_id}_preview",
+            fps=self.settings.preview_fps,
+            stride=self.settings.preview_stride,
+        )
 
 
 def generate_scenarios(

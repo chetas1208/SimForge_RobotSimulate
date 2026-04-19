@@ -31,11 +31,7 @@
 
       <!-- Footer -->
       <div class="p-4 border-t border-surface-800/50">
-        <div class="flex items-center gap-2 px-2">
-          <div class="w-2 h-2 rounded-full bg-success animate-pulse-slow"></div>
-          <span class="text-xs text-surface-500">Mock Provider Active</span>
-        </div>
-        <p class="text-[10px] text-surface-600 mt-2 px-2">v0.1.0 · SDK + API</p>
+        <p class="text-[10px] text-surface-600 px-2">v0.1.0 · SDK + API</p>
       </div>
     </aside>
 

@@ -44,6 +44,10 @@
                   <button @click="runScenario(s.id)" class="btn-ghost text-xs text-forge-400" :disabled="s.status === 'draft'">
                     ▶ Run
                   </button>
+                  <NuxtLink :to="`/runs?scenarioId=${s.id}`" class="btn-ghost text-xs">🏃 Runs</NuxtLink>
+                  <NuxtLink :to="`/evaluation?scenarioId=${s.id}`" class="btn-ghost text-xs">📊 Compare</NuxtLink>
+                  <NuxtLink :to="`/outputs?scenarioId=${s.id}`" class="btn-ghost text-xs">📦 Outputs</NuxtLink>
+                  <a :href="scenarioExportUrl(s.id)" class="btn-ghost text-xs" target="_blank" rel="noopener">⬇ Export</a>
                   <button @click="deleteScenario(s.id)" class="btn-ghost text-xs text-danger">🗑</button>
                 </div>
               </td>
@@ -75,6 +79,7 @@ const filtered = computed(() => {
 })
 
 const formatDate = (d: string) => d ? new Date(d).toLocaleDateString() : '—'
+const scenarioExportUrl = (id: string) => api.getScenarioExportUrl(id)
 
 const loadScenarios = async () => {
   try { scenarios.value = await api.getScenarios() } catch (e) { console.error(e) }

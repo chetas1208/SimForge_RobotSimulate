@@ -1,7 +1,7 @@
 // Shared TypeScript types — Jobs
 
 export type JobStatus = 'queued' | 'preparing' | 'running' | 'rendering' | 'completed' | 'failed'
-export type ProviderType = 'mock' | 'isaac'
+export type ProviderType = 'mock' | 'isaac' | 'track4'
 
 export interface SimulationJob {
   id: string

@@ -1,7 +1,6 @@
 """SQLAlchemy database models for SimForge."""
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
@@ -16,6 +15,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 
+from app.core.time import utc_now
+
 Base = declarative_base()
 
 
@@ -29,7 +30,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(String, default="developer")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
 
 class Scenario(Base):
@@ -48,8 +49,8 @@ class Scenario(Base):
     random_seed = Column(Integer, default=42)
     notes = Column(Text, default="")
     status = Column(String, default="draft")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
     variants = relationship("ScenarioVariant", back_populates="scenario", cascade="all, delete-orphan")
     jobs = relationship("SimulationJob", back_populates="scenario", cascade="all, delete-orphan")
@@ -63,7 +64,7 @@ class ScenarioVariant(Base):
     variant_parameters_json = Column(JSON, default=dict)
     deterministic_seed = Column(Integer, nullable=False)
     status = Column(String, default="queued")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
     scenario = relationship("Scenario", back_populates="variants")
 
@@ -76,9 +77,9 @@ class SimulationJob(Base):
     provider_type = Column(String, default="mock")
     mode = Column(String, default="mock")
     status = Column(String, default="queued")
-    submitted_at = Column(DateTime, default=datetime.utcnow)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
+    submitted_at = Column(DateTime(timezone=True), default=utc_now)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     duration_seconds = Column(Float, nullable=True)
     log_path = Column(String, nullable=True)
     error_message = Column(Text, nullable=True)
@@ -96,7 +97,7 @@ class OutputArtifact(Base):
     file_path = Column(String, nullable=False)
     preview_path = Column(String, nullable=True)
     metadata_json = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
     job = relationship("SimulationJob", back_populates="artifacts")
 
@@ -114,7 +115,7 @@ class EvaluationReport(Base):
     explanation = Column(Text, default="")
     top_risk_factors = Column(JSON, default=list)
     recommended_actions = Column(JSON, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
     job = relationship("SimulationJob", back_populates="evaluation")
 
@@ -127,7 +128,7 @@ class ActivityLog(Base):
     related_entity_id = Column(String, nullable=True)
     message = Column(Text, nullable=False)
     metadata_json = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
 
 class SystemSetting(Base):
@@ -135,4 +136,4 @@ class SystemSetting(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     key = Column(String, unique=True, nullable=False)
     value = Column(Text, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)

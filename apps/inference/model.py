@@ -11,14 +11,14 @@ import xgboost as xgb
 
 from apps.inference.schema_validation import validate_feature_row
 from packages.shared_schema import FeatureSchema, RiskLabel, encode_feature_frame, probability_to_risk_label
-from packages.utils import read_json
+from packages.utils import read_json, resolve_project_path
 
 
 class RiskScoringModel:
     """Loads saved XGBoost artifacts and predicts warehouse risk."""
 
     def __init__(self, model_dir: str | Path):
-        self.model_dir = Path(model_dir)
+        self.model_dir = resolve_project_path(model_dir)
         self.schema = FeatureSchema(**read_json(self.model_dir / "feature_schema.json"))
         self.train_config = read_json(self.model_dir / "train_config.json")
         self.model_version = str(self.train_config.get("model_version", self.model_dir.name))
@@ -29,9 +29,10 @@ class RiskScoringModel:
 
     @classmethod
     def from_pickle(cls, model_path: str | Path) -> "RiskScoringModel":
-        payload = pickle.loads(Path(model_path).read_bytes())
+        resolved_path = resolve_project_path(model_path)
+        payload = pickle.loads(Path(resolved_path).read_bytes())
         instance = cls.__new__(cls)
-        instance.model_dir = Path(model_path).parent
+        instance.model_dir = Path(resolved_path).parent
         instance.schema = FeatureSchema(**payload["schema"])
         instance.train_config = {
             "model_version": payload["model_version"],
@@ -106,4 +107,3 @@ class RiskScoringModel:
 def predict_single_row(model_dir: str | Path, feature_row: dict[str, Any]) -> float:
     model = RiskScoringModel(model_dir=model_dir)
     return model.predict_row(feature_row)
-

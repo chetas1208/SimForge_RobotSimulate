@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -12,6 +12,11 @@ from pydantic import BaseModel, Field, model_validator
 
 FEATURE_SCHEMA_VERSION = "2026-04-18-real-risk-v2"
 PIPELINE_SCHEMA_VERSION = "2026-04-18-sim-service-v2"
+
+
+def utc_now() -> datetime:
+    """Return a timezone-aware UTC timestamp."""
+    return datetime.now(UTC)
 
 
 class DifficultyLevel(str, Enum):
@@ -196,7 +201,7 @@ class ScenarioManifest(BaseModel):
     parsed_scenario: dict[str, Any] = Field(default_factory=dict)
     variant_parameters: dict[str, Any] = Field(default_factory=dict)
     artifact_paths: dict[str, str] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ScenarioMetadata(BaseModel):
@@ -212,7 +217,7 @@ class ScenarioMetadata(BaseModel):
     status: str
     output_dir: str
     preview_asset_type: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     retries: int = 0
     notes: list[str] = Field(default_factory=list)
     runtime: dict[str, Any] = Field(default_factory=dict)
@@ -266,7 +271,7 @@ class FeatureSchema(BaseModel):
     defaults: dict[str, Any]
     ranges: dict[str, tuple[float | int, float | int]]
     dropped_columns: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class GeneratedVariantArtifact(BaseModel):

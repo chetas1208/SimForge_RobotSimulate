@@ -34,6 +34,7 @@ export const useApi = () => {
     deleteScenario: (id: string) => apiFetch(`/scenarios/${id}`, { method: 'DELETE' }),
     compileScenario: (id: string) => apiFetch(`/scenarios/${id}/compile`, { method: 'POST' }),
     getVariants: (id: string) => apiFetch(`/scenarios/${id}/variants`),
+    getScenarioResults: (id: string) => apiFetch(`/scenarios/${id}/results`),
 
     // Runs / Jobs
     submitRun: (scenarioId: string) => apiFetch(`/scenarios/${scenarioId}/run`, { method: 'POST' }),
@@ -45,6 +46,8 @@ export const useApi = () => {
     getArtifacts: () => apiFetch('/artifacts'),
     getArtifact: (id: string) => apiFetch(`/artifacts/${id}`),
     getJobArtifacts: (jobId: string) => apiFetch(`/jobs/${jobId}/artifacts`),
+    getArtifactDownloadUrl: (artifactId: string) => `${baseUrl}/artifacts/${artifactId}/download`,
+    getScenarioExportUrl: (scenarioId: string) => `${baseUrl}/scenarios/${scenarioId}/export`,
 
     // Evaluations
     getEvaluations: () => apiFetch('/evaluations'),

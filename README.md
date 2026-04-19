@@ -45,8 +45,8 @@ Physical AI teams testing warehouse robots face a critical gap: **rare edge case
 ├───────────────────────────────────────────────────────┤
 │               Simulation Providers                     │
 │  ┌─────────────────┐  ┌────────────────────────────┐  │
-│  │ MockProvider     │  │ IsaacProvider (scaffold)   │  │
-│  │ (local, no GPU) │  │ (remote HPC, RTX GPUs)     │  │
+│  │ MockProvider     │  │ Isaac Runtime Path         │  │
+│  │ (local, no GPU) │  │ (headless HPC, RTX GPUs)   │  │
 │  └─────────────────┘  └────────────────────────────┘  │
 ├───────────────────────────────────────────────────────┤
 │  SQLite (MVP) │ File Storage │ Redis (optional)       │
@@ -126,11 +126,14 @@ simforge evaluation show <job-id>
 | DELETE | `/api/scenarios/{id}` | Delete scenario |
 | POST | `/api/scenarios/{id}/compile` | Compile variants |
 | GET | `/api/scenarios/{id}/variants` | List variants |
+| GET | `/api/scenarios/{id}/results` | Aggregate variant results |
+| GET | `/api/scenarios/{id}/export` | Download scenario ZIP export |
 | POST | `/api/scenarios/{id}/run` | Submit simulation run |
 | GET | `/api/jobs` | List jobs |
 | GET | `/api/jobs/{id}` | Get job details |
 | POST | `/api/jobs/{id}/retry` | Retry failed job |
 | GET | `/api/artifacts` | List artifacts |
+| GET | `/api/artifacts/{id}/download` | Download artifact file |
 | GET | `/api/jobs/{id}/artifacts` | List job artifacts |
 | GET | `/api/evaluations` | List evaluations |
 | GET | `/api/jobs/{id}/evaluation` | Get job evaluation |
@@ -158,7 +161,7 @@ pip install -e ../../packages/simforge-sdk
 # Copy environment
 cp .env.example .env
 
-# Start backend (auto-creates DB and seeds demo data)
+# Start backend (auto-creates DB; demo seed only runs when ENABLE_DEMO_SEED=true)
 uvicorn main:app --reload --port 8000
 ```
 
@@ -183,6 +186,19 @@ npm run dev
 docker-compose up -d
 ```
 
+## Optional Codex MCP Setup
+
+If you use Codex with MCP servers, the repo now includes an optional helper for
+registering a Butterbase MCP endpoint locally. This does not affect SimForge
+runtime behavior unless you run it yourself.
+
+```bash
+export BUTTERBASE_API_KEY=your-butterbase-api-key-here
+./tools/setup_butterbase_mcp.sh
+```
+
+More details live in [docs/BUTTERBASE_MCP_SETUP.md](/home/923873155/Hackathon_18Apr/docs/BUTTERBASE_MCP_SETUP.md).
+
 ---
 
 ## Mock Mode
@@ -198,23 +214,22 @@ Set `SIMULATION_PROVIDER=mock` in backend `.env` (this is the default).
 
 ---
 
-## Isaac Sim Integration (Future)
+## Isaac Sim / HPC Mode
 
-The `IsaacSimulationProvider` scaffold is ready for integration with NVIDIA Isaac Sim on remote HPC infrastructure:
+The backend can now invoke the Isaac runtime path in `SIMULATION_PROVIDER=isaac` mode and route completed jobs back through the existing artifact and evaluation APIs.
 
-- OpenUSD-compatible manifest generation
-- SSH-based remote job submission hooks
-- Result collection from HPC storage
-- Parameterized scene templates per environment type
+Use the dedicated launcher:
 
-Configure via:
-```env
-SIMULATION_PROVIDER=isaac
-HPC_HOST=your-hpc.cluster.edu
-HPC_USER=username
-HPC_WORKDIR=/scratch/simforge
-ISAAC_RESULTS_DIR=/scratch/simforge/results
+```bash
+./start_hpc_isaac.sh
 ```
+
+Full setup details live in [docs/HPC_ISAAC_RUNBOOK.md](/home/923873155/Hackathon_18Apr/docs/HPC_ISAAC_RUNBOOK.md).
+
+Current caveat:
+
+- OpenUSD scene generation and Isaac execution are wired in
+- preview video is still produced by the existing preview path rather than full Isaac-native camera capture
 
 ---
 

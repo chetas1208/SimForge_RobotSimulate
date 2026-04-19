@@ -53,3 +53,13 @@ backend.log
 frontend.log
 test_simforge.db
 apps/backend/storage/
+.conda/
+logs/
+storage/
+data/raw_sim/*
+!data/raw_sim/.gitkeep
+outputs/manifests/*
+!outputs/manifests/.gitkeep
+outputs/previews/*
+!outputs/previews/.gitkeep
+ui/
